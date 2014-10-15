@@ -3,8 +3,14 @@ package uvsq.m2secrets.proxyreencryption.entities;
 import it.unisa.dia.gas.jpbc.Element;
 
 import java.io.Serializable;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -16,7 +22,57 @@ public class EncryptedDocument implements Serializable {
 	private byte[] encryptedBody;
 
 	public static EncryptedDocument encrypt(byte[] message, User dest, long level) {
-	   //TODO: create an encryption
+	    EncryptedDocument reps = new EncryptedDocument();
+	    // génère un élément aléatoire du groupe GT
+	    Element m = Parameters.GT().newRandomElement();
+	    byte[] aeskey = Parameters.hash_to_byteArray(m, 128);
+		Cipher cipher;
+		try {
+			cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+			SecretKeySpec sp = new SecretKeySpec(aeskey, "AES");
+			IvParameterSpec ivp = new IvParameterSpec(aeskey);
+			cipher.init(Cipher.ENCRYPT_MODE, sp, ivp);
+			byte[] ciphertext = cipher.doFinal(message);
+			//Chiffrement de la clé secrète aes (cad la variable m)
+			EncryptedSessionKey esk = new EncryptedSessionKey();
+			PubKey pub = dest.getPubKey();
+			if(level == 1) {
+				Element k = Parameters.Zr().newRandomElement();
+				Element za1k = pub.getZa1().duplicate().powZn(k);
+				Element mzk = Parameters.z().powZn(k).mul(m);
+				esk.setLevel1(za1k, mzk);
+			} else if(level==2) {
+				Element k = Parameters.Zr().newRandomElement();
+				Element gk = Parameters.g().powZn(k);
+				Element mza1k = pub.getZa1().duplicate().powZn(k).mul(m);
+				esk.setLevel2(gk, mza1k);
+			} else { //pas de level == 3 pour le chiffrement, mais il y en aura un pour le déchiffrement!
+				
+			}
+			reps.setEncryptedBody(ciphertext);
+			reps.setEncryptedSessionKey(esk);
+			reps.setRecipientId(dest.getId());
+			return reps;
+			
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (NoSuchPaddingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvalidKeyException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvalidAlgorithmParameterException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalBlockSizeException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (BadPaddingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		return null;
 	}
 	public static byte[] decryptDocument(EncryptedDocument edoc,PrivKey priv) {
