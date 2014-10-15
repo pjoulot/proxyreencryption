@@ -15,8 +15,12 @@ public class ProxyKey implements Serializable {
 	public ProxyKey() {}
 	
 	public static ProxyKey delegate(User owner, User recipient, PrivKey ownerPriv) {
-		//TODO: create the proxy delegation
-		return null;
+		ProxyKey proxy = new ProxyKey();
+		proxy.setOwnerId(owner.getId());
+		proxy.setRecipientId(recipient.getId());
+		Element ha1b2 = recipient.getPubKey().getHa2().duplicate().powZn(ownerPriv.getA1());
+		proxy.setHa1b2(ha1b2);
+		return proxy;
 	}
 	public static EncryptedDocument reencrypt(ProxyKey proxy, EncryptedDocument edoc) {
 		if (edoc.getRecipientId()!=proxy.ownerId) {
